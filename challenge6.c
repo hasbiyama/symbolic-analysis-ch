@@ -10,7 +10,7 @@ github.com/hasbiyama
 
 [SECURE] 
 
-> gcc -o challenge4 challenge6.c -O3 -s -fvisibility=hidden -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -pie -Wl,-z,relro,-z,now -static
+> gcc -o challenge4 challenge6.c -O3 -s -fvisibility=hidden -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -pie -Wl,-z,relro,-z,now
 
 [DUMP]
 
