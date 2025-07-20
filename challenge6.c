@@ -6,15 +6,15 @@ github.com/hasbiyama
 
 [HARD-TO-REVERSE] 
 
-> gcc -o challenge4 challenge4.c -O3 -s -fvisibility=hidden -fdata-sections -ffunction-sections -Wl,--gc-sections -fno-stack-protector -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-ident -fomit-frame-pointer -static
+> gcc -o challenge4 challenge6.c -O3 -s -fvisibility=hidden -fdata-sections -ffunction-sections -Wl,--gc-sections -fno-stack-protector -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-ident -fomit-frame-pointer -static
 
 [SECURE] 
 
-> gcc -o challenge4 challenge4.c -O3 -s -fvisibility=hidden -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -pie -Wl,-z,relro,-z,now -static
+> gcc -o challenge4 challenge6.c -O3 -s -fvisibility=hidden -fstack-protector-strong -D_FORTIFY_SOURCE=2 -fPIE -pie -Wl,-z,relro,-z,now -static
 
 [DUMP]
 
-objdump -M intel -j .text -d ./challenge4
+objdump -M intel -j .text -d ./challenge6
 
 */
 
@@ -36,6 +36,15 @@ objdump -M intel -j .text -d ./challenge4
     } \
 } while (0)
 
+#define ENC_TOTAL_LEN 22
+#define KEY_TOTAL_LEN 24
+#define TOTAL_LEN ((ENC_TOTAL_LEN < KEY_TOTAL_LEN) ? ENC_TOTAL_LEN : KEY_TOTAL_LEN)
+
+typedef struct {
+    const uint8_t *data;
+    size_t len;
+} ConstBlock;
+
 uint8_t sbox[256];
 uint8_t inv_sbox[256];
 
@@ -46,45 +55,74 @@ void init_sboxes() {
     }
 }
 
-const uint8_t ENC_P1_A[2] = {0x18, 0x08};
-const uint8_t ENC_P1_B[2] = {0x0D, 0x00};
-const uint8_t ENC_P1_C[2] = {0x00, 0x00};
-const uint8_t ENC_P1_D[3] = {0x00, 0x00, 0x00};
+// Encryption constants
+static const uint8_t enc_p1_a[] = {0x18, 0x08};
+static const uint8_t enc_p1_b[] = {0x0D, 0x00};
+static const uint8_t enc_p1_c[] = {0x00, 0x00};
+static const uint8_t enc_p1_d[] = {0x00, 0x00, 0x00};
+static const uint8_t enc_p2_a[] = {0x00, 0x00};
+static const uint8_t enc_p2_b[] = {0x00, 0x00};
+static const uint8_t enc_p2_c[] = {0x00, 0x00};
+static const uint8_t enc_p2_d[] = {0x00, 0x00};
+static const uint8_t enc_p2_e[] = {0x00, 0x00, 0x00};
 
-const uint8_t ENC_P2_A[2] = {0x00, 0x00};
-const uint8_t ENC_P2_B[2] = {0x00, 0x00};
-const uint8_t ENC_P2_C[2] = {0x00, 0x00};
-const uint8_t ENC_P2_D[2] = {0x00, 0x00};
-const uint8_t ENC_P2_E[3] = {0x00, 0x00, 0x00};
+static const ConstBlock ENC_PARTS[] = {
+    {enc_p1_a, sizeof(enc_p1_a)},
+    {enc_p1_b, sizeof(enc_p1_b)},
+    {enc_p1_c, sizeof(enc_p1_c)},
+    {enc_p1_d, sizeof(enc_p1_d)},
+    {enc_p2_a, sizeof(enc_p2_a)},
+    {enc_p2_b, sizeof(enc_p2_b)},
+    {enc_p2_c, sizeof(enc_p2_c)},
+    {enc_p2_d, sizeof(enc_p2_d)},
+    {enc_p2_e, sizeof(enc_p2_e)},
+};
 
-const uint8_t KEY_P1_A[2] = {0x24, 0xEC};
-const uint8_t KEY_P1_B[2] = {0xC1, 0x55};
-const uint8_t KEY_P1_C[2] = {0x60, 0x1E};
-const uint8_t KEY_P1_D[2] = {0xBA, 0x00};
+// Key constants
+static const uint8_t key_p1_a[] = {0x24, 0xEC};
+static const uint8_t key_p1_b[] = {0xC1, 0x55};
+static const uint8_t key_p1_c[] = {0x60, 0x1E};
+static const uint8_t key_p1_d[] = {0xBA, 0x00};
+static const uint8_t key_p2_a[] = {0x2A, 0xED};
+static const uint8_t key_p2_b[] = {0x6F, 0xE8};
+static const uint8_t key_p2_c[] = {0xA2, 0xE3};
+static const uint8_t key_p2_d[] = {0x2E, 0x96};
+static const uint8_t key_p3_a[] = {0xBF, 0x8F};
+static const uint8_t key_p3_b[] = {0xF2, 0xE8};
+static const uint8_t key_p3_c[] = {0xD3, 0xAD};
+static const uint8_t key_p3_d[] = {0x66, 0x4C};
 
-const uint8_t KEY_P2_A[2] = {0x2A, 0xED};
-const uint8_t KEY_P2_B[2] = {0x6F, 0xE8};
-const uint8_t KEY_P2_C[2] = {0xA2, 0xE3};
-const uint8_t KEY_P2_D[2] = {0x2E, 0x96};
+static const ConstBlock KEY_PARTS[] = {
+    {key_p1_a, sizeof(key_p1_a)},
+    {key_p1_b, sizeof(key_p1_b)},
+    {key_p1_c, sizeof(key_p1_c)},
+    {key_p1_d, sizeof(key_p1_d)},
+    {key_p2_a, sizeof(key_p2_a)},
+    {key_p2_b, sizeof(key_p2_b)},
+    {key_p2_c, sizeof(key_p2_c)},
+    {key_p2_d, sizeof(key_p2_d)},
+    {key_p3_a, sizeof(key_p3_a)},
+    {key_p3_b, sizeof(key_p3_b)},
+    {key_p3_c, sizeof(key_p3_c)},
+    {key_p3_d, sizeof(key_p3_d)},
+};
 
-const uint8_t KEY_P3_A[2] = {0xBF, 0x8F};
-const uint8_t KEY_P3_B[2] = {0xF2, 0xE8};
-const uint8_t KEY_P3_C[2] = {0xD3, 0xAD};
-const uint8_t KEY_P3_D[2] = {0x66, 0x4C};
+// XOR key constants
+static const uint8_t xor_p1[] = {0x10, 0x20};
+static const uint8_t xor_p2[] = {0x30, 0x40};
+static const uint8_t xor_p3[] = {0x50, 0x60};
+static const uint8_t xor_p4[] = {0x70, 0x80};
 
-const uint8_t XOR_P1[2] = {0x10, 0x20};
-const uint8_t XOR_P2[2] = {0x30, 0x40};
-const uint8_t XOR_P3[2] = {0x50, 0x60};
-const uint8_t XOR_P4[2] = {0x70, 0x80};
-
-#define ENC_TOTAL_LEN 22
-#define KEY_TOTAL_LEN 24
-#define TOTAL_LEN ((ENC_TOTAL_LEN < KEY_TOTAL_LEN) ? ENC_TOTAL_LEN : KEY_TOTAL_LEN)
+static const ConstBlock XOR_PARTS[] = {
+    {xor_p1, sizeof(xor_p1)},
+    {xor_p2, sizeof(xor_p2)},
+    {xor_p3, sizeof(xor_p3)},
+    {xor_p4, sizeof(xor_p4)},
+};
 
 uint8_t* secure_alloc(size_t size) {
     uint8_t *ptr = calloc(1, size);
     if (!ptr || mlock(ptr, size) != 0) {
-        // perror("secure_alloc");  // Removed string
         free(ptr);
         return NULL;
     }
@@ -179,36 +217,19 @@ int check_key(const char *input) {
     }
 
     size_t off = 0;
-
-    append(enc, ENC_P1_A, &off, sizeof(ENC_P1_A));
-    append(enc, ENC_P1_B, &off, sizeof(ENC_P1_B));
-    append(enc, ENC_P1_C, &off, sizeof(ENC_P1_C));
-    append(enc, ENC_P1_D, &off, sizeof(ENC_P1_D));
-    append(enc, ENC_P2_A, &off, sizeof(ENC_P2_A));
-    append(enc, ENC_P2_B, &off, sizeof(ENC_P2_B));
-    append(enc, ENC_P2_C, &off, sizeof(ENC_P2_C));
-    append(enc, ENC_P2_D, &off, sizeof(ENC_P2_D));
-    append(enc, ENC_P2_E, &off, sizeof(ENC_P2_E));
+    for (size_t i = 0; i < sizeof(ENC_PARTS)/sizeof(ConstBlock); i++) {
+        append(enc, ENC_PARTS[i].data, &off, ENC_PARTS[i].len);
+    }
 
     off = 0;
-    append(key, KEY_P1_A, &off, sizeof(KEY_P1_A));
-    append(key, KEY_P1_B, &off, sizeof(KEY_P1_B));
-    append(key, KEY_P1_C, &off, sizeof(KEY_P1_C));
-    append(key, KEY_P1_D, &off, sizeof(KEY_P1_D));
-    append(key, KEY_P2_A, &off, sizeof(KEY_P2_A));
-    append(key, KEY_P2_B, &off, sizeof(KEY_P2_B));
-    append(key, KEY_P2_C, &off, sizeof(KEY_P2_C));
-    append(key, KEY_P2_D, &off, sizeof(KEY_P2_D));
-    append(key, KEY_P3_A, &off, sizeof(KEY_P3_A));
-    append(key, KEY_P3_B, &off, sizeof(KEY_P3_B));
-    append(key, KEY_P3_C, &off, sizeof(KEY_P3_C));
-    append(key, KEY_P3_D, &off, sizeof(KEY_P3_D));
+    for (size_t i = 0; i < sizeof(KEY_PARTS)/sizeof(ConstBlock); i++) {
+        append(key, KEY_PARTS[i].data, &off, KEY_PARTS[i].len);
+    }
 
     off = 0;
-    append(key_xor_key, XOR_P1, &off, sizeof(XOR_P1));
-    append(key_xor_key, XOR_P2, &off, sizeof(XOR_P2));
-    append(key_xor_key, XOR_P3, &off, sizeof(XOR_P3));
-    append(key_xor_key, XOR_P4, &off, sizeof(XOR_P4));
+    for (size_t i = 0; i < sizeof(XOR_PARTS)/sizeof(ConstBlock); i++) {
+        append(key_xor_key, XOR_PARTS[i].data, &off, XOR_PARTS[i].len);
+    }
 
     key_xor_key_decrypt(key, KEY_TOTAL_LEN, key_xor_key);
 
@@ -234,10 +255,8 @@ int main(int argc, char *argv[]) {
     init_sboxes();
 
     if (argc < 2) {
-        // printf("Usage: %s <key_string>\n", argv[0]);  // Removed string
         return 1;
     }
 
-    return check_key(argv[1]) ? (/* printf("Correct key!\n"), */ 0)
-                              : (/* printf("Wrong key!\n"), */ 1);
+    return check_key(argv[1]) ? 0 : 1;
 }
